@@ -54,6 +54,13 @@ param(
     [string]$BackupPath,
 
     [Parameter()]
+    [ValidateRange(0, 7)]
+    [int]$EventLoggingLevel = 1,
+
+    [Parameter()]
+    [bool]$ConfigureDotNetStrongCrypto = $true,
+
+    [Parameter()]
     [switch]$Force
 )
 
@@ -355,6 +362,67 @@ $complianceReport.Add([PSCustomObject]@{
     Compliant     = $suitesCompliant
     Action        = if ($AuditOnly) { 'Audited' } else { $actionTakenSuites }
 })
+
+# 9. Audit and Configure SCHANNEL Event Logging for Troubleshooting
+$currentLogging = Get-RegistryDword -Path $schannelBase -Name 'EventLogging'
+$loggingCompliant = ($currentLogging -eq $EventLoggingLevel -or ($EventLoggingLevel -eq 1 -and $currentLogging -ge 1))
+$actionTakenLogging = 'None'
+if (-not $AuditOnly) {
+    if ($PSCmdlet.ShouldProcess("SCHANNEL Event Logging (Level: $EventLoggingLevel)", "Configure diagnostic event logging")) {
+        Set-RegistryDword -Path $schannelBase -Name 'EventLogging' -Value $EventLoggingLevel
+        $actionTakenLogging = 'Configured'
+    }
+}
+
+$complianceReport.Add([PSCustomObject]@{
+    Category      = 'DiagnosticLogging'
+    Name          = 'SCHANNEL EventLogging'
+    TargetState   = "EventLogging >= $EventLoggingLevel"
+    CurrentState  = "EventLogging=$currentLogging"
+    Compliant     = $loggingCompliant
+    Action        = if ($AuditOnly) { 'Audited' } else { $actionTakenLogging }
+})
+
+# 10. Audit and Configure .NET Framework Strong Cryptography (32-bit and 64-bit Architecture)
+if ($ConfigureDotNetStrongCrypto) {
+    $is64BitOS = [Environment]::Is64BitOperatingSystem
+    $dotNetHives = @(
+        @{ Arch = '64-bit/Native'; Path = 'HKLM:\SOFTWARE\Microsoft\.NETFramework' }
+    )
+    if ($is64BitOS) {
+        $dotNetHives += @{ Arch = '32-bit/WOW64'; Path = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\.NETFramework' }
+    }
+
+    $frameworkVersions = @('v4.0.30319', 'v2.0.50727')
+
+    foreach ($hive in $dotNetHives) {
+        foreach ($ver in $frameworkVersions) {
+            $regKey = "$($hive.Path)\$ver"
+            $currentStrongCrypto = Get-RegistryDword -Path $regKey -Name 'SchUseStrongCrypto'
+            $currentDefTls = Get-RegistryDword -Path $regKey -Name 'SystemDefaultTlsVersions'
+
+            $isCompliantDotNet = ($currentStrongCrypto -eq 1 -and $currentDefTls -eq 1)
+            $actionTakenDotNet = 'None'
+
+            if (-not $AuditOnly) {
+                if ($PSCmdlet.ShouldProcess(".NET $ver ($($hive.Arch))", "Enforce SchUseStrongCrypto and SystemDefaultTlsVersions")) {
+                    Set-RegistryDword -Path $regKey -Name 'SchUseStrongCrypto' -Value 1
+                    Set-RegistryDword -Path $regKey -Name 'SystemDefaultTlsVersions' -Value 1
+                    $actionTakenDotNet = 'Enabled'
+                }
+            }
+
+            $complianceReport.Add([PSCustomObject]@{
+                Category      = "DotNetFramework-$($hive.Arch)"
+                Name          = "$ver (StrongCrypto & DefaultTls)"
+                TargetState   = 'SchUseStrongCrypto=1, SystemDefaultTlsVersions=1'
+                CurrentState  = "SchUseStrongCrypto=$currentStrongCrypto, SystemDefaultTlsVersions=$currentDefTls"
+                Compliant     = $isCompliantDotNet
+                Action        = if ($AuditOnly) { 'Audited' } else { $actionTakenDotNet }
+            })
+        }
+    }
+}
 
 # Summary output
 $compliantCount = @($complianceReport | Where-Object { $_.Compliant -eq $true }).Count

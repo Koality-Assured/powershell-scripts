@@ -111,10 +111,32 @@ begin {
         return $Source
     }
 
+    function Convert-YamlScalarValue {
+        param([string]$Raw)
+        if ($null -eq $Raw) { return $null }
+        $s = $Raw.Trim()
+        if ($s.Length -eq 0 -or $s -in @('~', 'null', 'Null', 'NULL')) { return $null }
+        if ($s -in @('true', 'True', 'TRUE')) { return $true }
+        if ($s -in @('false', 'False', 'FALSE')) { return $false }
+        if (($s.StartsWith('"') -and $s.EndsWith('"')) -or ($s.StartsWith("'") -and $s.EndsWith("'"))) {
+            if ($s.Length -ge 2) {
+                return $s.Substring(1, $s.Length - 2)
+            }
+            return ''
+        }
+        if ($s -match '^-?\d+$') {
+            try { return [int64]$s } catch { return $s }
+        }
+        if ($s -match '^-?\d+\.\d+$') {
+            try { return [double]$s } catch { return $s }
+        }
+        return $s
+    }
+
     function Parse-BasicYamlString {
         param([string]$Yaml)
 
-        # 1. Attempt PowerShell 7 native ConvertFrom-Yaml
+        # 1. Attempt PowerShell native ConvertFrom-Yaml if available
         if (Get-Command -Name 'ConvertFrom-Yaml' -ErrorAction SilentlyContinue) {
             return ($Yaml | ConvertFrom-Yaml)
         }
@@ -130,92 +152,174 @@ begin {
             # Continue to line parser
         }
 
-        # 3. Indentation-stack YAML parser supporting nested dictionaries and arrays
-        $rootDict = [ordered]@{}
-        $stack = [System.Collections.Generic.List[hashtable]]::new()
-        $stack.Add(@{ Indent = -1; Container = $rootDict; Key = $null; IsList = $false })
-
+        # 3. Robust stack-based YAML parser supporting nested objects, arrays of primitives, arrays of objects, and nulls
         $lines = $Yaml -split "`r?`n"
+
+        # Determine root container type based on first non-comment non-empty line
+        $rootIsList = $false
+        foreach ($l in $lines) {
+            $tl = $l.Trim()
+            if (-not [string]::IsNullOrWhiteSpace($tl) -and -not $tl.StartsWith('#')) {
+                if ($tl.StartsWith('- ')) { $rootIsList = $true }
+                break
+            }
+        }
+
+        $rootContainer = $null
+        $rootType = 'Dict'
+        if ($rootIsList) {
+            $rootContainer = [System.Collections.ArrayList]::new()
+            $rootType = 'List'
+        }
+        else {
+            $rootContainer = [ordered]@{}
+            $rootType = 'Dict'
+        }
+
+        $stack = [System.Collections.Generic.List[hashtable]]::new()
+        $stack.Add(@{
+            Indent        = -1
+            Type          = $rootType
+            Container     = $rootContainer
+            PendingKey    = $null
+            PendingIndent = -1
+        })
 
         foreach ($rawLine in $lines) {
             if ([string]::IsNullOrWhiteSpace($rawLine) -or $rawLine.TrimStart().StartsWith('#')) {
                 continue
             }
 
-            $trimmed = $rawLine.TrimStart()
-            $indent = $rawLine.Length - $trimmed.Length
+            # Strip trailing comments not inside quotes
+            $lineClean = $rawLine
+            if ($lineClean -match '^(.*?)(\s+#.*)$') {
+                $candidate = $Matches[1]
+                $dQuotes = ($candidate.ToCharArray() | Where-Object { $_ -eq '"' }).Count
+                $sQuotes = ($candidate.ToCharArray() | Where-Object { $_ -eq "'" }).Count
+                if ($dQuotes % 2 -eq 0 -and $sQuotes % 2 -eq 0) {
+                    $lineClean = $candidate
+                }
+            }
 
-            # Unwind stack when indent drops
-            while ($stack.Count -gt 1 -and $indent -le $stack[$stack.Count - 1].Indent) {
-                $stack.RemoveAt($stack.Count - 1)
+            $trimmed = $lineClean.TrimStart()
+            $indent = $lineClean.Length - $trimmed.Length
+
+            # Unwind stack if current indent is less than or equal to top's indent
+            while ($stack.Count -gt 1) {
+                $top = $stack[$stack.Count - 1]
+                if ($indent -le $top.Indent) {
+                    $stack.RemoveAt($stack.Count - 1)
+                }
+                else {
+                    break
+                }
             }
 
             $currentContext = $stack[$stack.Count - 1]
-            $currentContainer = $currentContext.Container
 
-            # List element: - value or - key: value
+            # If current context has a PendingKey, instantiate container for that key
+            if ($currentContext.PendingKey) {
+                $pKey = $currentContext.PendingKey
+                $pIndent = $currentContext.PendingIndent
+                $currentContext.PendingKey = $null
+
+                if ($trimmed.StartsWith('- ')) {
+                    $newList = [System.Collections.ArrayList]::new()
+                    $currentContext.Container[$pKey] = $newList
+                    $newContext = @{
+                        Indent        = $pIndent
+                        Type          = 'List'
+                        Container     = $newList
+                        PendingKey    = $null
+                        PendingIndent = -1
+                    }
+                    $stack.Add($newContext)
+                    $currentContext = $newContext
+                }
+                else {
+                    $newDict = [ordered]@{}
+                    $currentContext.Container[$pKey] = $newDict
+                    $newContext = @{
+                        Indent        = $pIndent
+                        Type          = 'Dict'
+                        Container     = $newDict
+                        PendingKey    = $null
+                        PendingIndent = -1
+                    }
+                    $stack.Add($newContext)
+                    $currentContext = $newContext
+                }
+            }
+
+            # List element: - value OR - key: value
             if ($trimmed.StartsWith('- ')) {
                 $listContent = $trimmed.Substring(2).Trim()
 
-                # If current container is not an ArrayList, convert or wrap
+                # Ensure current container is a list; if not, wrap or pop
                 $targetList = $null
-                if ($currentContext.IsList) {
-                    $targetList = $currentContainer
+                if ($currentContext.Type -eq 'List' -and $currentContext.Container -is [System.Collections.IList]) {
+                    $targetList = $currentContext.Container
                 }
-                elseif ($currentContext.Key -and $currentContainer -is [System.Collections.IDictionary]) {
-                    $targetList = [System.Collections.ArrayList]::new()
-                    $currentContainer[$currentContext.Key] = $targetList
-                    $stack.Add(@{ Indent = $indent; Container = $targetList; Key = $null; IsList = $true })
+                else {
+                    # Fallback to nearest list in stack
+                    for ($si = $stack.Count - 1; $si -ge 0; $si--) {
+                        if ($stack[$si].Type -eq 'List' -and $stack[$si].Container -is [System.Collections.IList]) {
+                            $targetList = $stack[$si].Container
+                            break
+                        }
+                    }
                 }
 
-                if ($listContent -match '^([A-Za-z0-9_\-]+)\s*:\s*(.*)$') {
+                if ($listContent -match '^([A-Za-z0-9_\-\.]+)\s*:\s*(.*)$') {
                     $itemDict = [ordered]@{}
                     $itemKey = $Matches[1].Trim()
-                    $itemVal = $Matches[2].Trim()
-                    if ($itemVal.StartsWith('"') -and $itemVal.EndsWith('"')) { $itemVal = $itemVal.Substring(1, $itemVal.Length - 2) }
-                    elseif ($itemVal.StartsWith("'") -and $itemVal.EndsWith("'")) { $itemVal = $itemVal.Substring(1, $itemVal.Length - 2) }
-                    $itemDict[$itemKey] = $itemVal
-                    if ($targetList) { [void]$targetList.Add($itemDict) }
-                    $stack.Add(@{ Indent = $indent + 2; Container = $itemDict; Key = $itemKey; IsList = $false })
+                    $itemValRaw = $Matches[2].Trim()
+
+                    $parsedVal = Convert-YamlScalarValue -Raw $itemValRaw
+                    $itemDict[$itemKey] = $parsedVal
+
+                    if ($null -ne $targetList) { [void]$targetList.Add($itemDict) }
+
+                    # Push frame for this object item so indented properties belong to it
+                    $stack.Add(@{
+                        Indent        = $indent
+                        Type          = 'Dict'
+                        Container     = $itemDict
+                        PendingKey    = if ($null -eq $parsedVal -and [string]::IsNullOrEmpty($itemValRaw)) { $itemKey } else { $null }
+                        PendingIndent = if ($null -eq $parsedVal -and [string]::IsNullOrEmpty($itemValRaw)) { $indent } else { -1 }
+                    })
                 }
                 else {
-                    $val = $listContent
-                    if ($val.StartsWith('"') -and $val.EndsWith('"')) { $val = $val.Substring(1, $val.Length - 2) }
-                    elseif ($val.StartsWith("'") -and $val.EndsWith("'")) { $val = $val.Substring(1, $val.Length - 2) }
-                    if ($targetList) { [void]$targetList.Add($val) }
+                    $scalarVal = Convert-YamlScalarValue -Raw $listContent
+                    if ($null -ne $targetList) {
+                        [void]$targetList.Add($scalarVal)
+                    }
                 }
             }
-            # Key-Value or Key-Object mapping
-            elseif ($trimmed -match '^([A-Za-z0-9_\-]+)\s*:\s*(.*)$') {
+            # Key-Value or Key-Container mapping
+            elseif ($trimmed -match '^([A-Za-z0-9_\-\.]+)\s*:\s*(.*)$') {
                 $k = $Matches[1].Trim()
-                $v = $Matches[2].Trim()
+                $vRaw = $Matches[2].Trim()
 
-                if ([string]::IsNullOrEmpty($v)) {
-                    $newSubDict = [ordered]@{}
-                    if ($currentContainer -is [System.Collections.IDictionary]) {
-                        $currentContainer[$k] = $newSubDict
+                if ([string]::IsNullOrEmpty($vRaw)) {
+                    # Empty scalar or container parent
+                    if ($currentContext.Container -is [System.Collections.IDictionary]) {
+                        $currentContext.Container[$k] = $null
                     }
-                    $stack.Add(@{ Indent = $indent; Container = $newSubDict; Key = $k; IsList = $false })
+                    $currentContext.PendingKey = $k
+                    $currentContext.PendingIndent = $indent
                 }
                 else {
-                    if (($v.StartsWith('"') -and $v.EndsWith('"')) -or ($v.StartsWith("'") -and $v.EndsWith("'"))) {
-                        $v = $v.Substring(1, $v.Length - 2)
+                    $parsedScalar = Convert-YamlScalarValue -Raw $vRaw
+                    if ($currentContext.Container -is [System.Collections.IDictionary]) {
+                        $currentContext.Container[$k] = $parsedScalar
                     }
-
-                    $parsedV = $v
-                    if ($v -eq 'true') { $parsedV = $true }
-                    elseif ($v -eq 'false') { $parsedV = $false }
-                    elseif ($v -match '^-?\d+$') { $parsedV = [int]$v }
-                    elseif ($v -match '^-?\d+\.\d+$') { $parsedV = [double]$v }
-
-                    if ($currentContainer -is [System.Collections.IDictionary]) {
-                        $currentContainer[$k] = $parsedV
-                    }
+                    $currentContext.PendingKey = $null
                 }
             }
         }
 
-        return $rootDict
+        return $rootContainer
     }
 }
 

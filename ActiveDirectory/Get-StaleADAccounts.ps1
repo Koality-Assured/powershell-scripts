@@ -86,6 +86,9 @@ param(
     [switch]$NeverLoggedInOnly,
 
     [Parameter()]
+    [switch]$CrossCheckDomainControllers,
+
+    [Parameter()]
     [ValidateSet('ReportOnly', 'Disable', 'MoveToOU')]
     [string]$Action = 'ReportOnly',
 
@@ -143,6 +146,47 @@ $cutoffDate = (Get-Date).AddDays(-$InactivityDays)
 $cutoffFileTime = $cutoffDate.ToFileTimeUtc()
 Write-Verbose "Calculated dormancy cutoff date: $cutoffDate (FileTimeUtc: $cutoffFileTime)"
 
+# Active Directory Replication Lag Warning:
+# 'lastLogonTimestamp' is replicated with an intentional randomized delay of up to 14 days
+# (governed by ms-DS-Logon-Time-Sync-Interval). To prevent false positives on accounts authenticated
+# within the last 14 days, -CrossCheckDomainControllers queries the exact 'lastLogon' attribute across all DCs.
+Write-Verbose "AD Replication Notice: 'lastLogonTimestamp' exhibits a 9-14 day replication sync interval. Use -CrossCheckDomainControllers to cross-verify authentications across all domain controllers."
+
+$domainControllers = @()
+if ($CrossCheckDomainControllers.IsPresent) {
+    try {
+        Write-Verbose "Discovering active Domain Controllers for cross-replication authentication audit..."
+        $dcParams = @{}
+        if ($adParams.ContainsKey('Server')) { $dcParams['Server'] = $adParams['Server'] }
+        if ($adParams.ContainsKey('Credential')) { $dcParams['Credential'] = $adParams['Credential'] }
+        $domainControllers = @(Get-ADDomainController -Filter * @dcParams)
+        Write-Verbose "Discovered $($domainControllers.Count) Domain Controllers for live lastLogon verification."
+    }
+    catch {
+        Write-Warning "Failed to discover domain controllers for cross-checking: $_"
+    }
+}
+
+function Get-LatestCrossDcLogon {
+    param([string]$AccountDn, [string]$Type)
+    $maxFileTime = 0
+    foreach ($dc in $domainControllers) {
+        try {
+            $dcHost = $dc.HostName
+            $rawVal = if ($Type -eq 'User') {
+                (Get-ADUser -Identity $AccountDn -Server $dcHost -Properties lastLogon -ErrorAction SilentlyContinue).lastLogon
+            } else {
+                (Get-ADComputer -Identity $AccountDn -Server $dcHost -Properties lastLogon -ErrorAction SilentlyContinue).lastLogon
+            }
+            if ($rawVal -and $rawVal -gt $maxFileTime) {
+                $maxFileTime = $rawVal
+            }
+        }
+        catch {}
+    }
+    return $maxFileTime
+}
+
 $results = [System.Collections.Generic.List[PSCustomObject]]::new()
 
 # Query Users
@@ -157,8 +201,16 @@ if ($AccountType -in @('User', 'All')) {
         $lastLogon = $null
         $daysInactive = [int]::MaxValue
 
-        if ($u.lastLogonTimestamp) {
-            $lastLogon = [DateTime]::FromFileTimeUtc($u.lastLogonTimestamp)
+        $effectiveLogonFileTime = $u.lastLogonTimestamp
+        if ($CrossCheckDomainControllers.IsPresent -and $domainControllers.Count -gt 0) {
+            $crossDcLogon = Get-LatestCrossDcLogon -AccountDn $u.DistinguishedName -Type 'User'
+            if ($crossDcLogon -gt $effectiveLogonFileTime) {
+                $effectiveLogonFileTime = $crossDcLogon
+            }
+        }
+
+        if ($effectiveLogonFileTime) {
+            $lastLogon = [DateTime]::FromFileTimeUtc($effectiveLogonFileTime)
             $daysInactive = [Math]::Floor(((Get-Date) - $lastLogon).TotalDays)
         }
 
@@ -233,8 +285,16 @@ if ($AccountType -in @('Computer', 'All')) {
         $lastLogon = $null
         $daysInactive = [int]::MaxValue
 
-        if ($c.lastLogonTimestamp) {
-            $lastLogon = [DateTime]::FromFileTimeUtc($c.lastLogonTimestamp)
+        $effectiveLogonFileTime = $c.lastLogonTimestamp
+        if ($CrossCheckDomainControllers.IsPresent -and $domainControllers.Count -gt 0) {
+            $crossDcLogon = Get-LatestCrossDcLogon -AccountDn $c.DistinguishedName -Type 'Computer'
+            if ($crossDcLogon -gt $effectiveLogonFileTime) {
+                $effectiveLogonFileTime = $crossDcLogon
+            }
+        }
+
+        if ($effectiveLogonFileTime) {
+            $lastLogon = [DateTime]::FromFileTimeUtc($effectiveLogonFileTime)
             $daysInactive = [Math]::Floor(((Get-Date) - $lastLogon).TotalDays)
         }
 

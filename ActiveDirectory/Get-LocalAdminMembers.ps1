@@ -69,6 +69,10 @@ param(
     [int]$ThrottleLimit = 16,
 
     [Parameter()]
+    [ValidateRange(1, 300)]
+    [int]$TimeoutSeconds = 15,
+
+    [Parameter()]
     [ValidateNotNullOrEmpty()]
     [string]$ExportCsv,
 
@@ -98,13 +102,52 @@ begin {
                 Import-Module ActiveDirectory -ErrorAction SilentlyContinue
             }
             if (Get-Module -Name ActiveDirectory) {
+                # Attempt standard recursive expansion
                 $adMembers = Get-ADGroupMember -Identity $GroupIdentifier -Recursive -ErrorAction Stop |
                     Where-Object { $_.objectClass -eq 'user' }
                 $members = @($adMembers)
             }
         }
         catch {
-            Write-Verbose "Could not expand domain group '$GroupIdentifier': $_"
+            # FSP / Cross-Forest Handling: Get-ADGroupMember throws "An operations error occurred"
+            # when encountering Foreign Security Principals (FSPs) from external trusted domains.
+            Write-Verbose "Get-ADGroupMember encountered error on '$GroupIdentifier' (likely contains Foreign Security Principals). Falling back to direct member resolution..."
+            try {
+                $groupObj = Get-ADGroup -Identity $GroupIdentifier -Properties members -ErrorAction Stop
+                foreach ($memberDn in $groupObj.members) {
+                    if ($memberDn -match 'CN=([^,]+),CN=ForeignSecurityPrincipals') {
+                        $fspSid = $Matches[1]
+                        $fspName = $fspSid
+                        try {
+                            $ntAccount = (New-Object System.Security.Principal.SecurityIdentifier($fspSid)).Translate([System.Security.Principal.NTAccount])
+                            $fspName = $ntAccount.Value
+                        }
+                        catch {
+                            # Unresolvable foreign SID across trusts
+                        }
+
+                        $members += [PSCustomObject]@{
+                            SamAccountName = $fspName
+                            SID            = [PSCustomObject]@{ Value = $fspSid }
+                            objectClass    = 'foreignSecurityPrincipal'
+                        }
+                    }
+                    else {
+                        try {
+                            $subMember = Get-ADObject -Identity $memberDn -Properties SamAccountName, objectClass -ErrorAction SilentlyContinue
+                            if ($subMember -and $subMember.objectClass -eq 'user') {
+                                $members += $subMember
+                            }
+                        }
+                        catch {
+                            # Skip unresolvable child
+                        }
+                    }
+                }
+            }
+            catch {
+                Write-Verbose "Could not expand domain group '$GroupIdentifier': $_"
+            }
         }
 
         $domainGroupMemberCache[$GroupIdentifier] = $members
@@ -122,9 +165,12 @@ process {
     else {
         foreach ($target in $ComputerName) {
             try {
+                $cimOption = New-CimSessionOption -Protocol Wsman
+                $cimOption.OperationTimeout = [TimeSpan]::FromSeconds($TimeoutSeconds)
                 $sessionParams = @{
-                    ComputerName = $target
-                    ErrorAction  = 'Stop'
+                    ComputerName  = $target
+                    SessionOption = $cimOption
+                    ErrorAction   = 'Stop'
                 }
                 if ($null -ne $Credential) {
                     $sessionParams['Credential'] = $Credential

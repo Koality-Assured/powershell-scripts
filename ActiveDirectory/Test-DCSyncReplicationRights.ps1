@@ -205,21 +205,42 @@ foreach ($partEntry in $targetPartitions.GetEnumerator()) {
     }
 
     $rules = $adSecurity.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier])
+    $sidCache = @{}
 
     foreach ($rule in $rules) {
-        $sidString = $rule.IdentityReference.Value
         $objectTypeGuid = $rule.ObjectType.ToString()
-        $accessControlType = $rule.AccessControlType.ToString()
-        $isInherited = $rule.IsInherited
+        $sidString = $rule.IdentityReference.Value
 
-        # Resolve friendly identity name
-        $identityName = $sidString
-        try {
-            $ntAccount = (New-Object System.Security.Principal.SecurityIdentifier($sidString)).Translate([System.Security.Principal.NTAccount])
-            $identityName = $ntAccount.Value
+        # Pre-filter: Check for replication extended rights or full control BEFORE expensive LSA SID resolution.
+        # In enterprise directories with thousands of ACLs, filtering first avoids thousands of blocking RPC lookups.
+        $isReplicationRight = $REPLICATION_RIGHTS.ContainsKey($objectTypeGuid)
+        $isGenericAll = ($IncludeGenericAll -and ($rule.ActiveDirectoryRights -band [System.DirectoryServices.ActiveDirectoryRights]::GenericAll) -eq [System.DirectoryServices.ActiveDirectoryRights]::GenericAll)
+        $isWriteDacl = ($IncludeGenericAll -and ($rule.ActiveDirectoryRights -band [System.DirectoryServices.ActiveDirectoryRights]::WriteDacl) -eq [System.DirectoryServices.ActiveDirectoryRights]::WriteDacl)
+
+        if (-not ($isReplicationRight -or $isGenericAll -or $isWriteDacl)) {
+            continue
         }
-        catch {
-            # Translate failure: Keep raw SID
+
+        # Fast-path well-known SID filter
+        if ($ExcludeDefaultPrincipals -and ($DEFAULT_REPLICATION_SIDS -contains $sidString)) {
+            continue
+        }
+
+        # Resolve friendly identity name with in-memory cache
+        $identityName = $sidString
+        if ($sidCache.ContainsKey($sidString)) {
+            $identityName = $sidCache[$sidString]
+        }
+        else {
+            try {
+                $ntAccount = (New-Object System.Security.Principal.SecurityIdentifier($sidString)).Translate([System.Security.Principal.NTAccount])
+                $identityName = $ntAccount.Value
+            }
+            catch {
+                # Translate failure: Retain raw SID
+                $identityName = $sidString
+            }
+            $sidCache[$sidString] = $identityName
         }
 
         # Determine RID if domain account
@@ -230,18 +251,12 @@ foreach ($partEntry in $targetPartitions.GetEnumerator()) {
 
         $isDefault = Test-IsDefaultPrincipal -SidString $sidString -IdentityName $identityName
 
-        # Check for replication extended rights
-        $isReplicationRight = $REPLICATION_RIGHTS.ContainsKey($objectTypeGuid)
-        $isGenericAll = ($IncludeGenericAll -and ($rule.ActiveDirectoryRights -band [System.DirectoryServices.ActiveDirectoryRights]::GenericAll) -eq [System.DirectoryServices.ActiveDirectoryRights]::GenericAll)
-        $isWriteDacl = ($IncludeGenericAll -and ($rule.ActiveDirectoryRights -band [System.DirectoryServices.ActiveDirectoryRights]::WriteDacl) -eq [System.DirectoryServices.ActiveDirectoryRights]::WriteDacl)
-
-        if (-not ($isReplicationRight -or $isGenericAll -or $isWriteDacl)) {
-            continue
-        }
-
         if ($ExcludeDefaultPrincipals -and $isDefault) {
             continue
         }
+
+        $accessControlType = $rule.AccessControlType.ToString()
+        $isInherited = $rule.IsInherited
 
         $rightName = if ($isReplicationRight) {
             $REPLICATION_RIGHTS[$objectTypeGuid]

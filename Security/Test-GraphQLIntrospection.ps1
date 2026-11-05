@@ -63,6 +63,15 @@ param(
     [hashtable]$Headers = @{},
 
     [Parameter()]
+    [string]$BearerToken,
+
+    [Parameter()]
+    [string]$ApiKey,
+
+    [Parameter()]
+    [string]$ApiKeyHeader = 'X-API-Key',
+
+    [Parameter()]
     [ValidateRange(1, 120)]
     [int]$TimeoutSeconds = 15,
 
@@ -142,6 +151,14 @@ foreach ($key in $Headers.Keys) {
     $requestHeaders[$key] = $Headers[$key]
 }
 
+if (-not [string]::IsNullOrWhiteSpace($BearerToken)) {
+    $requestHeaders['Authorization'] = "Bearer $BearerToken"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($ApiKey)) {
+    $requestHeaders[$ApiKeyHeader] = $ApiKey
+}
+
 $httpStatus = 0
 $introspectionEnabled = $false
 $schemaData = $null
@@ -186,13 +203,28 @@ try {
 }
 catch {
     $exception = $_.Exception
-    if ($exception.Response) {
+    $httpStatus = 0
+
+    # Cross-platform status code extraction supporting Windows PowerShell 5.1 and PowerShell Core 7+
+    if ($exception.Response -and $exception.Response.StatusCode) {
         try {
             $httpStatus = [int]$exception.Response.StatusCode
-        }
-        catch {
+        } catch {
             $httpStatus = 0
         }
+    }
+    elseif ($exception.PSObject -and $exception.PSObject.Properties['StatusCode']) {
+        try {
+            $httpStatus = [int]$exception.StatusCode
+        } catch {
+            $httpStatus = 0
+        }
+    }
+    elseif ($_.ErrorDetails -and $_.ErrorDetails.Message -match '\b(40[13]|50\d)\b') {
+        $httpStatus = [int]$Matches[1]
+    }
+    elseif ($exception.Message -match '\b(40[13]|50\d)\b') {
+        $httpStatus = [int]$Matches[1]
     }
 
     $errorMessage = $exception.Message
@@ -268,7 +300,9 @@ if ($introspectionEnabled) {
     $remediation = "IMMEDIATE HARDENING: Disable GraphQL introspection in production environments. Configure server options (e.g. Apollo Server `introspection: false`, GraphQL-Yoga `plugins: [useDisableIntrospection()]`) to prevent schema enumeration."
 }
 elseif ($httpStatus -in @(401, 403)) {
-    $remediation = "Endpoint returned HTTP $httpStatus. Verify whether introspection is protected behind authentication or globally disabled."
+    $statusText = if ($httpStatus -eq 401) { 'Unauthorized' } else { 'Forbidden' }
+    $riskLevel = 'Medium'
+    $remediation = "AUTHENTICATION REQUIRED: Endpoint returned HTTP $httpStatus ($statusText). Introspection is protected behind authentication or an API gateway. Provide -BearerToken or -ApiKey to test whether authenticated roles can enumerate the schema."
 }
 
 $auditResult = [PSCustomObject]@{
@@ -293,6 +327,9 @@ if ($introspectionEnabled) {
     if ($sensitiveFieldsFound.Count -gt 0) {
         Write-Host "    Potentially Sensitive Fields: $($sensitiveFieldsFound.Count) matches (e.g. $($sensitiveFieldsFound | Select-Object -First 5 -Join ', '))" -ForegroundColor Yellow
     }
+}
+elseif ($httpStatus -in @(401, 403)) {
+    Write-Host "[?] NOTICE: GraphQL Endpoint requires authentication (HTTP $httpStatus). Test with -BearerToken or -ApiKey to verify authenticated role exposure." -ForegroundColor Yellow
 }
 else {
     Write-Host "[+] PASS: GraphQL Introspection is DISABLED or blocked on $Uri" -ForegroundColor Green
