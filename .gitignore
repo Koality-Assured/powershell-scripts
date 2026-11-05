@@ -1,0 +1,45 @@
+# PowerShell artifacts & test outputs
+*.csv
+*.tsv
+*.xml
+*.log
+*.html
+*.reg
+*.tmp
+*.temp
+/test-output/
+/output/
+
+# Certificate & Private Key Protection (Absolute Fence)
+*.pfx
+*.p12
+*.pem
+*.key
+*.pkcs12
+*.cer
+*.crt
+
+# Python caches & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+ENV/
+
+# Editor & OS metadata
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
