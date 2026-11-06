@@ -18,6 +18,7 @@ Describe "Koality Assured PowerShell Scripts Validation Suite" {
             "ActiveDirectory\Test-DCSyncReplicationRights.ps1",
             "ActiveDirectory\Get-LocalAdminMembers.ps1",
             "ActiveDirectory\Get-StaleADAccounts.ps1",
+            "ActiveDirectory\Test-ADKerberosDelegation.ps1",
             "Security\Get-ExpiringCertificates.ps1",
             "Security\Set-WindowsTlsHardening.ps1",
             "Security\Test-GraphQLIntrospection.ps1",
