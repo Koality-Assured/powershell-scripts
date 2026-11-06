@@ -57,7 +57,7 @@ PROPRIETARY_PATTERNS: List[Tuple[str, re.Pattern]] = [
     ),
     (
         "Proprietary Hostname / Prefix",
-        re.compile(r"\bABK-[A-Z0-9_-]+|\bCORE-[A-Z0-9_-]+|\bRLAB-[A-Z0-9_-]+|\bBlizzardCA[0-9]*\b|\bCOREROOT[0-9]*\b|\bCOREBICA[0-9]*\b", re.IGNORECASE),
+        re.compile(r"\bABK-[A-Za-z0-9_-]*\d+|\bCORE-(?:HICA|MICA|ROOT|DC|BICA|CWC|SRV)[0-9]*\b|\bRLAB-[A-Za-z0-9_-]*\d+|\bBlizzardCA[0-9]*\b|\bCOREROOT[0-9]*\b|\bCOREBICA[0-9]*\b", re.IGNORECASE),
     ),
     (
         "Corporate Employee Email",

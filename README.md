@@ -1,18 +1,19 @@
 <div align="center">
 
-![POWERSHELL SCRIPTS Banner](assets/powershell-scripts-banner.svg)
+![PowerShell Scripts Banner](assets/powershell-scripts-banner.svg)
 
-# Powershell Scripts
+# PowerShell Scripts
 
 <p align="center">
-  <img src="assets/powershell-scripts-logo.svg" alt="POWERSHELL SCRIPTS Logo" width="128" height="128" />
+  <img src="assets/powershell-scripts-logo.svg" alt="PowerShell Scripts Logo" width="128" height="128" />
 </p>
 
 **Production-Grade PowerShell 7+ Automation for Active Directory Threat Hunting & Security Hardening**
 
 [![CI](https://github.com/Koality-Assured/powershell-scripts/actions/workflows/ci.yml/badge.svg)](https://github.com/Koality-Assured/powershell-scripts/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
-[![Domain: powershell--scripts](https://img.shields.io/badge/domain-powershell--scripts-blueviolet.svg)](#)
+[![PowerShell 7.4+](https://img.shields.io/badge/PowerShell-7.4%2B-5391FE.svg)](https://github.com/PowerShell/PowerShell)
+[![Domain: Powershell-Scripts](https://img.shields.io/badge/domain-powershell-scripts-blueviolet.svg)]()
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
 
 </div>
@@ -27,6 +28,7 @@
 | `ActiveDirectory/` | [`Test-DCSyncReplicationRights.ps1`](#test-dcsyncreplicationrightsps1) | Threat Hunting | Discovers anomalous principals possessing DCSync replication rights on AD partition heads. |
 | `ActiveDirectory/` | [`Get-LocalAdminMembers.ps1`](#get-localadminmembersps1) | Endpoint Auditing | Recursively audits members of local `Administrators` (S-1-5-32-544) via CIM with domain expansion. |
 | `ActiveDirectory/` | [`Get-StaleADAccounts.ps1`](#get-staleadaccountsps1) | AD Hygiene | Discovers inactive user/computer accounts using native cmdlets; supports `-WhatIf` remediation. |
+| `ActiveDirectory/` | [`Test-ADKerberosDelegation.ps1`](#test-adkerberosdelegationps1) | Threat Hunting | Audits Unconstrained, Constrained (S4U2Self), and RBCD delegation attack surfaces. |
 | `Security/` | [`Get-ExpiringCertificates.ps1`](#get-expiringcertificatesps1) | PKI & Monitoring | Scans local/remote stores and Microsoft CAs for expiring certificates; sends Teams/Slack webhooks. |
 | `Security/` | [`Set-WindowsTlsHardening.ps1`](#set-windowstlshardeningps1) | Platform Hardening | Enforces TLS 1.2/1.3 in SCHANNEL; disables SSL 2.0/3.0, PCT, and weak ciphers with `-AuditOnly`. |
 | `Security/` | [`Test-GraphQLIntrospection.ps1`](#test-graphqlintrospectionps1) | API Security | Evaluates GraphQL API endpoints for schema introspection disclosure and sensitive fields. |

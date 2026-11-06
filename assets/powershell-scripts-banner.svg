@@ -6,8 +6,13 @@
       <stop offset="100%" stop-color="#080C14" />
     </linearGradient>
     <linearGradient id="accent-cyan" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#0284C7" />
+      <stop offset="0%" stop-color="#00ADD8" />
       <stop offset="100%" stop-color="#10B981" />
+    </linearGradient>
+    <linearGradient id="core-glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00ADD8" />
+      <stop offset="50%" stop-color="#10B981" />
+      <stop offset="100%" stop-color="#F59E0B" />
     </linearGradient>
     <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
       <feGaussianBlur stdDeviation="6" result="blur" />
@@ -15,72 +20,90 @@
     </filter>
   </defs>
 
+  <!-- Background Backdrop -->
   <rect width="1280" height="400" fill="url(#bg)" />
 
-  <g opacity="0.12" stroke="#0284C7" stroke-width="1">
+  <!-- Tech Matrix Blueprint Grid -->
+  <g opacity="0.12" stroke="#00ADD8" stroke-width="1">
     <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
       <path d="M 40 0 L 0 0 0 40" fill="none" />
     </pattern>
     <rect width="1280" height="400" fill="url(#grid)" />
   </g>
 
+  <!-- High-Tech Data Stream Vectors -->
   <g opacity="0.25">
-    <path d="M -50 120 Q 350 40 640 180 T 1330 200" fill="none" stroke="#0284C7" stroke-width="2" />
-    <path d="M -50 260 Q 420 320 780 220 T 1330 150" fill="none" stroke="#10B981" stroke-width="2" />
+    <path d="M -50 100 Q 300 60 640 180 T 1330 220" fill="none" stroke="#00ADD8" stroke-width="2" />
+    <path d="M -50 280 Q 400 340 780 240 T 1330 140" fill="none" stroke="#10B981" stroke-width="2" />
   </g>
 
+  <!-- Left: Hero Graphic Emblematics -->
   <g transform="translate(180, 200)">
+    <!-- Concentric Orbit Rings -->
     <circle cx="0" cy="0" r="140" fill="none" stroke="#334155" stroke-width="1.5" stroke-dasharray="6 8" opacity="0.4" />
-    <circle cx="0" cy="0" r="110" fill="none" stroke="#0284C7" stroke-width="2" stroke-dasharray="30 15 60 15" opacity="0.7" />
+    <circle cx="0" cy="0" r="110" fill="none" stroke="#00ADD8" stroke-width="2" stroke-dasharray="30 15 60 15" opacity="0.7" />
     <circle cx="0" cy="0" r="80" fill="none" stroke="#10B981" stroke-width="2" opacity="0.6" />
-    <circle cx="0" cy="-140" r="10" fill="#0B0F19" stroke="#0284C7" stroke-width="3" />
+    
+    <!-- Outer Spoke Nodes -->
+    <circle cx="0" cy="-140" r="10" fill="#0B0F19" stroke="#00ADD8" stroke-width="3" />
     <circle cx="140" cy="0" r="10" fill="#0B0F19" stroke="#10B981" stroke-width="3" />
     <circle cx="0" cy="140" r="10" fill="#0B0F19" stroke="#F59E0B" stroke-width="3" />
-    <circle cx="-140" cy="0" r="10" fill="#0B0F19" stroke="#0284C7" stroke-width="3" />
-    <g transform="translate(-40, -45)" filter="url(#glow)">
-      
-        <!-- Terminal Window & PowerShell Prompt Motif -->
-        <rect x="5" y="10" width="70" height="65" rx="5" fill="#1E293B" stroke="#0284C7" stroke-width="2" />
-        <rect x="5" y="10" width="70" height="14" rx="3" fill="#0F172A" />
-        <circle cx="12" cy="17" r="2.5" fill="#EF4444" />
-        <circle cx="18" cy="17" r="2.5" fill="#F59E0B" />
-        <circle cx="24" cy="17" r="2.5" fill="#10B981" />
-        <!-- PS prompt >_ -->
-        <path d="M 14 36 L 24 43 L 14 50" fill="none" stroke="#38BDF8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-        <line x1="28" y1="50" x2="38" y2="50" stroke="#10B981" stroke-width="2.5" stroke-linecap="round" />
+    <circle cx="-140" cy="0" r="10" fill="#0B0F19" stroke="#00ADD8" stroke-width="3" />
+
+    <!-- Central Iconography Transformed -->
+    <g transform="translate(-256, -256)">
+
+    <!-- Terminal Chevron Motif -->
+    <rect x="150" y="160" width="212" height="160" rx="16" fill="#0B0F19" stroke="#00ADD8" stroke-width="5" />
+    <!-- Header Window Dots -->
+    <circle cx="175" cy="182" r="5" fill="#EF4444" />
+    <circle cx="195" cy="182" r="5" fill="#F59E0B" />
+    <circle cx="215" cy="182" r="5" fill="#10B981" />
+    <!-- Chevron >_ -->
+    <path d="M 180 220 L 210 245 L 180 270" fill="none" stroke="#10B981" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+    <line x1="225" y1="270" x2="260" y2="270" stroke="#F59E0B" stroke-width="6" stroke-linecap="round" />
         
     </g>
   </g>
 
+  <!-- Right: Typography & Capability Badges -->
   <g transform="translate(420, 100)">
-    <rect x="0" y="0" width="350" height="26" rx="13" fill="#1E293B" stroke="#334155" stroke-width="1" />
-    <circle cx="14" cy="13" r="5" fill="#0284C7" filter="url(#glow)" />
-    <text x="28" y="17" fill="#94A3B8" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="700" letter-spacing="1.5">KOALITY-ASSURED • WINDOWS & AD AUTOMATION</text>
+    <!-- Overline Category Capsule -->
+    <rect x="0" y="0" width="355" height="26" rx="13" fill="#1E293B" stroke="#334155" stroke-width="1" />
+    <circle cx="14" cy="13" r="5" fill="#00ADD8" filter="url(#glow)" />
+    <text x="28" y="17" fill="#94A3B8" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="700" letter-spacing="1.5">KOALITY-ASSURED • WINDOWS &amp; AD AUTOMATION</text>
 
-    <text x="0" y="72" fill="#FFFFFF" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="46" font-weight="900" letter-spacing="1">POWERSHELL SCRIPTS</text>
+    <!-- Project Title -->
+    <text x="0" y="72" fill="#FFFFFF" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="48" font-weight="900" letter-spacing="1">POWERSHELL SCRIPTS</text>
 
-    <text x="0" y="110" fill="#94A3B8" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="400">Production-Grade PowerShell 7+ Automation for Active Directory Threat Hunting & Security Hardening</text>
+    <!-- Subtitle -->
+    <text x="0" y="110" fill="#94A3B8" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="17" font-weight="400">Production-Grade PowerShell 7+ Automation for Active Directory Threat Hunting &amp; Security Hardening</text>
 
+    <!-- Capability Chips -->
     <g transform="translate(0, 150)">
+      <!-- Chip 1: AD DCSync Audit -->
       <g transform="translate(0, 0)">
-        <rect x="0" y="0" width="192" height="38" rx="8" fill="#111827" stroke="#0284C7" stroke-width="1.5" />
-        <circle cx="18" cy="19" r="4" fill="#0284C7" />
-        <text x="32" y="24" fill="#E2E8F0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600">AD DCSync Auditing</text>
+        <rect x="0" y="0" width="183" height="38" rx="8" fill="#111827" stroke="#00ADD8" stroke-width="1.5" />
+        <circle cx="18" cy="19" r="4" fill="#00ADD8" />
+        <text x="32" y="24" fill="#E2E8F0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600">AD DCSync Audit</text>
       </g>
-      <g transform="translate(204, 0)">
-        <rect x="0" y="0" width="192" height="38" rx="8" fill="#111827" stroke="#10B981" stroke-width="1.5" />
+      <!-- Chip 2: SCHANNEL Hardening -->
+      <g transform="translate(197, 0)">
+        <rect x="0" y="0" width="210" height="38" rx="8" fill="#111827" stroke="#10B981" stroke-width="1.5" />
         <circle cx="18" cy="19" r="4" fill="#10B981" />
         <text x="32" y="24" fill="#E2E8F0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600">SCHANNEL Hardening</text>
       </g>
-      <g transform="translate(408, 0)">
-        <rect x="0" y="0" width="232" height="38" rx="8" fill="#111827" stroke="#F59E0B" stroke-width="1.5" />
+      <!-- Chip 3: Local Admin Audit -->
+      <g transform="translate(421, 0)">
+        <rect x="0" y="0" width="201" height="38" rx="8" fill="#111827" stroke="#F59E0B" stroke-width="1.5" />
         <circle cx="18" cy="19" r="4" fill="#F59E0B" />
-        <text x="32" y="24" fill="#E2E8F0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600">Local Admin Enumeration</text>
+        <text x="32" y="24" fill="#E2E8F0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600">Local Admin Audit</text>
       </g>
-      <g transform="translate(652, 0)">
-        <rect x="0" y="0" width="208" height="38" rx="8" fill="#111827" stroke="#38BDF8" stroke-width="1.5" />
+      <!-- Chip 4: PowerShell 7+ -->
+      <g transform="translate(636, 0)">
+        <rect x="0" y="0" width="165" height="38" rx="8" fill="#111827" stroke="#38BDF8" stroke-width="1.5" />
         <circle cx="18" cy="19" r="4" fill="#38BDF8" />
-        <text x="32" y="24" fill="#E2E8F0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600">PowerShell 7+ Native</text>
+        <text x="32" y="24" fill="#E2E8F0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600">PowerShell 7+</text>
       </g>
     </g>
   </g>
