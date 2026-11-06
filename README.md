@@ -1,12 +1,21 @@
-# Koality Assured PowerShell Automation Repository
+<div align="center">
 
-[![PowerShell](https://img.shields.io/badge/PowerShell-7%2B%20%7C%205.1-blue.svg?logo=powershell&logoColor=white)](https://github.com/PowerShell/PowerShell)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Security Gate](https://img.shields.io/badge/Security%20Gate-100%25%20Passed-brightgreen.svg)](adversarial_review.py)
-[![Sanitization](https://img.shields.io/badge/Sanitization-Zero%20Leaks-success.svg)](tests/test_powershell_scripts.py)
-[![Tests](https://img.shields.io/badge/Tests-Pester%20%7C%20Pytest-green.svg)](tests/)
+![POWERSHELL SCRIPTS Banner](assets/powershell-scripts-banner.svg)
 
-Production-grade, modular, and sanitized PowerShell 7+ automation tools engineered by **Koality Assured Systems Engineering**. This repository consolidates identity governance, threat hunting, infrastructure security hardening, and systems administration utilities into a structured, tested, and audited suite.
+# Powershell Scripts
+
+<p align="center">
+  <img src="assets/powershell-scripts-logo.svg" alt="POWERSHELL SCRIPTS Logo" width="128" height="128" />
+</p>
+
+**Production-Grade PowerShell 7+ Automation for Active Directory Threat Hunting & Security Hardening**
+
+[![CI](https://github.com/Koality-Assured/powershell-scripts/actions/workflows/ci.yml/badge.svg)](https://github.com/Koality-Assured/powershell-scripts/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+[![Domain: powershell--scripts](https://img.shields.io/badge/domain-powershell--scripts-blueviolet.svg)](#)
+[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
+
+</div>
 
 ---
 
